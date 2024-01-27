@@ -4,9 +4,9 @@ namespace MyUser.Services;
 
 public interface IEntityRepository<TEntity> where TEntity : BaseEntity
 {
-    IEnumerable<TEntity> GetAll();
-    TEntity GetById(Guid id);
-    void Create(TEntity item);
-    void Remove(TEntity item);
-    void Update(TEntity item);
+    Task<IEnumerable<TEntity>> GetAllAsync();
+    Task<TEntity> GetByIdAsync(Guid id);
+    Task<TEntity> CreateAsync(TEntity item);
+    Task<TEntity> UpdateAsync(Guid id, TEntity item);
+    Task<bool> DeleteAsync(Guid id);
 }

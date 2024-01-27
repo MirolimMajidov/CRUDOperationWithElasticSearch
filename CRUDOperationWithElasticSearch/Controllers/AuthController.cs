@@ -19,9 +19,9 @@ namespace MyUser.Controllers
         }
 
         [HttpPost]
-        public IActionResult LogIn(string username, string password)
+        public async Task<IActionResult> LogIn(string username, string password)
         {
-            User user = _repository.GetAll().SingleOrDefault(x => x.Username == username && x.Password == password);
+            User user = (await _repository.GetAllAsync()).SingleOrDefault(x => x.Username == username && x.Password == password);
             if (user is null)
             {
                 return BadRequest(new { errorText = "Invalid username or password." });

@@ -21,42 +21,41 @@ namespace MyUser.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public IEnumerable<TEntity> Get()
+        public async Task<IEnumerable<TEntity>> Get()
         {
-            return _repository.GetAll().ToList();
+            return await _repository.GetAllAsync();
         }
 
         [HttpGet("GetById")]
         [AllowAnonymous]
-        public TEntity GetById(Guid id)
+        public async Task<TEntity> GetById(Guid id)
         {
-            return _repository.GetById(id);
+            return await _repository.GetByIdAsync(id);
         }
 
         [HttpPost]
-        public TEntity Create(TEntity user)
+        public async Task<TEntity> Create(TEntity user)
         {
-            _repository.Create(user);
-
+            await _repository.CreateAsync(user);
             return user;
         }
 
         [HttpPut]
-        public TEntity Update(TEntity user)
+        public async Task<TEntity> Update(TEntity user)
         {
-            var _user = _repository.GetById(user.Id);
+            var _user = await _repository.GetByIdAsync(user.Id);
             if (_user is not null)
-                _repository.Update(user);
+                await _repository.UpdateAsync(user.Id, user);
 
             return user;
         }
 
         [HttpDelete]
-        public TEntity Delete(Guid userId)
+        public async Task<TEntity> Delete(Guid userId)
         {
-            var _user = _repository.GetById(userId);
+            var _user = await _repository.GetByIdAsync(userId);
             if (_user is not null)
-                _repository.Remove(_user);
+                await _repository.DeleteAsync(userId);
 
             return _user;
         }

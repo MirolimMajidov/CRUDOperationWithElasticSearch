@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using CRUDOperationWithElasticSearch.Models.Helpers;
+using Elasticsearch.Net;
 using Microsoft.OpenApi.Models;
 using MyUser.Models;
 using MyUser.Models.Helpers;
@@ -15,7 +16,17 @@ public class Program
         #region services
 
         // Add services to the container.
-        builder.Services.AddDbContext<UserContext>(options => options.UseSqlServer(UserContext.ConnectionString));
+        builder.Services.AddSingleton<ElasticsearchConfig>(builder.Configuration.GetSection("ElasticsearchConfig").Get<ElasticsearchConfig>());
+        builder.Services.AddSingleton<IElasticLowLevelClient>(provider =>
+        {
+            var config = provider.GetRequiredService<ElasticsearchConfig>();
+            var pool = new SingleNodeConnectionPool(new Uri(config.Uri));
+            var connectionSettings = new ConnectionConfiguration(pool);
+
+            return new ElasticLowLevelClient(connectionSettings);
+        });
+        //builder.Services.AddDbContext<UserContext>(options => options.UseSqlServer(UserContext.ConnectionString));
+
         builder.Services.AddTransient(typeof(IEntityRepository<>), typeof(EntityRepository<>));
 
         builder.Services.AddAuthorizations();
@@ -51,14 +62,32 @@ public class Program
 
         var app = builder.Build();
 
-        #region Middlewares
-
-        //Calls migration to create or update the database
         using (var scope = app.Services.CreateScope())
         {
-            var context = scope.ServiceProvider.GetRequiredService<UserContext>();
-            context.Database.Migrate();
+            var userRepository = scope.ServiceProvider.GetRequiredService<IEntityRepository<User>>();
+            var users = new List<User>()
+                {
+                    new User(){ FirstName = "Jahonger", LastName = "Ahmedov", Username = "User1", Password = "User11" },
+                    new User(){ FirstName = "Jake", LastName = "Esh" , Username = "User2", Password = "User22" },
+                    new User(){ FirstName = "Rasul", LastName = "Azimov" , Username = "User3", Password = "User33" },
+                };
+
+            foreach (var user in users)
+                userRepository.CreateAsync(user);
+
+            var backpackRepository = scope.ServiceProvider.GetRequiredService<IEntityRepository<Backpack>>();
+            var firstUser = users.First();
+            var backpacks = new List<Backpack>()
+                {
+                    new Backpack(){ Name = "First", UserId = firstUser.Id },
+                    new Backpack(){ Name = "Second", UserId = firstUser.Id },
+                };
+
+            foreach (var backpack in backpacks)
+                backpackRepository.CreateAsync(backpack);
         }
+
+        #region Middlewares
 
         if (app.Environment.IsDevelopment())
         {
