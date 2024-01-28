@@ -1,4 +1,3 @@
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyUser.Models;
@@ -21,43 +20,50 @@ namespace MyUser.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IEnumerable<TEntity>> Get()
+        public virtual async Task<IEnumerable<TEntity>> Get(int? from = null, int? size = null)
         {
-            return await _repository.GetAllAsync();
+            return await _repository.GetAllAsync(from, size);
         }
 
         [HttpGet("GetById")]
         [AllowAnonymous]
-        public async Task<TEntity> GetById(Guid id)
+        public async Task<ActionResult> GetById(Guid id)
         {
-            return await _repository.GetByIdAsync(id);
+            var entity = await _repository.GetByIdAsync(id);
+            if (entity == null)
+                return NotFound();
+
+            return Ok(entity);
         }
 
         [HttpPost]
-        public async Task<TEntity> Create(TEntity user)
+        public async Task<ActionResult> Create(TEntity user)
         {
-            await _repository.CreateAsync(user);
-            return user;
+            var entity = await _repository.CreateAsync(user);
+            if (entity == null)
+                return BadRequest();
+
+            return Ok(entity);
         }
 
         [HttpPut]
-        public async Task<TEntity> Update(TEntity user)
+        public async Task<ActionResult> Update(Guid userId, TEntity user)
         {
-            var _user = await _repository.GetByIdAsync(user.Id);
-            if (_user is not null)
-                await _repository.UpdateAsync(user.Id, user);
+            var _user = await _repository.UpdateAsync(user.Id, user);
+            if (_user == null)
+                return BadRequest();
 
-            return user;
+            return Ok(_user);
         }
 
         [HttpDelete]
-        public async Task<TEntity> Delete(Guid userId)
+        public async Task<ActionResult> Delete(Guid userId)
         {
-            var _user = await _repository.GetByIdAsync(userId);
-            if (_user is not null)
-                await _repository.DeleteAsync(userId);
+            var response = await _repository.DeleteAsync(userId);
+            if (response)
+                BadRequest();
 
-            return _user;
+            return Ok();
         }
     }
 }

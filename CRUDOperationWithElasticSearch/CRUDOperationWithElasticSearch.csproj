@@ -6,10 +6,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Elasticsearch.Net" Version="7.17.5" />
+		<PackageReference Include="Elastic.Clients.Elasticsearch" Version="8.11.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
-		<PackageReference Include="System.Text.Json" Version="8.0.1" />
 	</ItemGroup>
 
 </Project>

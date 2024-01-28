@@ -1,5 +1,4 @@
 ﻿using CRUDOperationWithElasticSearch.Models.Helpers;
-using Elasticsearch.Net;
 using Microsoft.OpenApi.Models;
 using MyUser.Models;
 using MyUser.Models.Helpers;
@@ -17,22 +16,12 @@ public class Program
 
         // Add services to the container.
         builder.Services.AddSingleton<ElasticsearchConfig>(builder.Configuration.GetSection("ElasticsearchConfig").Get<ElasticsearchConfig>());
-        builder.Services.AddSingleton<IElasticLowLevelClient>(provider =>
-        {
-            var config = provider.GetRequiredService<ElasticsearchConfig>();
-            var pool = new SingleNodeConnectionPool(new Uri(config.Uri));
-            var connectionSettings = new ConnectionConfiguration(pool);
-
-            return new ElasticLowLevelClient(connectionSettings);
-        });
-        //builder.Services.AddDbContext<UserContext>(options => options.UseSqlServer(UserContext.ConnectionString));
 
         builder.Services.AddTransient(typeof(IEntityRepository<>), typeof(EntityRepository<>));
 
         builder.Services.AddAuthorizations();
         builder.Services.AddControllers();
         builder.Services.AddEndpointsApiExplorer();
-        //builder.Services.AddSwaggerGen();
 
         builder.Services.AddSwaggerGen(c =>
         {
@@ -61,31 +50,7 @@ public class Program
         #endregion
 
         var app = builder.Build();
-
-        using (var scope = app.Services.CreateScope())
-        {
-            var userRepository = scope.ServiceProvider.GetRequiredService<IEntityRepository<User>>();
-            var users = new List<User>()
-                {
-                    new User(){ FirstName = "Jahonger", LastName = "Ahmedov", Username = "User1", Password = "User11" },
-                    new User(){ FirstName = "Jake", LastName = "Esh" , Username = "User2", Password = "User22" },
-                    new User(){ FirstName = "Rasul", LastName = "Azimov" , Username = "User3", Password = "User33" },
-                };
-
-            foreach (var user in users)
-                userRepository.CreateAsync(user);
-
-            var backpackRepository = scope.ServiceProvider.GetRequiredService<IEntityRepository<Backpack>>();
-            var firstUser = users.First();
-            var backpacks = new List<Backpack>()
-                {
-                    new Backpack(){ Name = "First", UserId = firstUser.Id },
-                    new Backpack(){ Name = "Second", UserId = firstUser.Id },
-                };
-
-            foreach (var backpack in backpacks)
-                backpackRepository.CreateAsync(backpack);
-        }
+        CreateTestData();
 
         #region Middlewares
 
@@ -102,5 +67,34 @@ public class Program
         #endregion
 
         app.Run();
+
+
+        void CreateTestData()
+        {
+            using (var scope = app.Services.CreateScope())
+            {
+                var userRepository = scope.ServiceProvider.GetRequiredService<IEntityRepository<User>>();
+                var users = new List<User>()
+                {
+                    new User(){ Id = Guid.Parse("4E6B06C5-BFCE-4D94-9BA0-79C1D557BFAF"), FirstName = "Jahonger", LastName = "Ahmedov", Username = "User1", Password = "User11" },
+                    new User(){ Id = Guid.Parse("E036847E-6B8F-489D-A8E3-59F45778B013"),  FirstName = "Jake", LastName = "Esh" , Username = "User2", Password = "User22" },
+                    new User(){ Id = Guid.Parse("76ABF344-4036-42B4-8272-1B269A8A2369"),  FirstName = "Rasul", LastName = "Azimov" , Username = "User3", Password = "User33" },
+                };
+
+                foreach (var user in users)
+                    userRepository.CreateAsync(user);
+
+                var backpackRepository = scope.ServiceProvider.GetRequiredService<IEntityRepository<Backpack>>();
+                var firstUser = users.First();
+                var backpacks = new List<Backpack>()
+                {
+                    new Backpack(){ Id = Guid.Parse("10442774-9CD3-4BB0-B17B-84F69BFFF3D5"),  Name = "First", UserId = firstUser.Id },
+                    new Backpack(){ Id = Guid.Parse("CB365C49-9A1A-41B6-A8CA-AFFF328BD7AA"),  Name = "Second", UserId = firstUser.Id },
+                };
+
+                foreach (var backpack in backpacks)
+                    backpackRepository.CreateAsync(backpack);
+            }
+        }
     }
 }

@@ -1,19 +1,18 @@
-﻿using Elasticsearch.Net;
+﻿using CRUDOperationWithElasticSearch.Models.Helpers;
+using Elastic.Clients.Elasticsearch;
 using MyUser.Models;
-using System.Reflection.Metadata;
-using System.Text.Json;
 
 namespace MyUser.Services;
 
 public class EntityRepository<TEntity> : IEntityRepository<TEntity> where TEntity : BaseEntity
 {
-    private readonly IElasticLowLevelClient _elasticClient;
+    private readonly ElasticsearchClient _elasticClient;
     private readonly string _indexName;
 
-    public EntityRepository(IElasticLowLevelClient elasticClient)
+    public EntityRepository(ElasticsearchConfig elasticsearchConfig)
     {
-        _elasticClient = elasticClient;
         _indexName = typeof(TEntity).Name.ToLower();
+        _elasticClient = new ElasticsearchClient(new Uri(elasticsearchConfig.Uri));
 
         // Create the index if it does not exist
         EnsureIndexExists();
@@ -21,100 +20,71 @@ public class EntityRepository<TEntity> : IEntityRepository<TEntity> where TEntit
 
     private void EnsureIndexExists()
     {
-        var indexExistsResponse = _elasticClient.Indices.Exists<StringResponse>(_indexName);
-
-        if (!indexExistsResponse.Success)
+        var indexExistsResponse = _elasticClient.Indices.Exists(_indexName);
+        if (!indexExistsResponse.Exists)
         {
             // Index does not exist, create it
-            var createIndexResponse = _elasticClient.Indices.Create<StringResponse>(_indexName, PostData.Serializable(new { }));
-
-            if (!createIndexResponse.Success)
+            var createIndexResponse = _elasticClient.Indices.Create(_indexName);
+            if (!createIndexResponse.IsValidResponse)
             {
-                // Handle error, e.g., log or throw an exception
-                throw new Exception($"Failed to create index {_indexName}. Error: {createIndexResponse.Body}");
+                var reason = createIndexResponse.ElasticsearchServerError?.Error?.Reason;
+                throw new Exception($"Failed to create index {_indexName}. Error: {reason}");
             }
         }
     }
 
     public async Task<TEntity> GetByIdAsync(Guid id)
     {
-        var response = await _elasticClient.GetAsync<StringResponse>(_indexName, id.ToString());
+        var response = await _elasticClient.GetAsync<TEntity>(id, idx => idx.Index(_indexName));
 
-        if (response.Success)
-        {
-            // Deserialize and return the entity
-            return JsonSerializer.Deserialize<TEntity>(response.Body);
-        }
-        else
-        {
-            // Handle error, e.g., log or throw an exception
-            return null;
-        }
+        if (response.IsValidResponse)
+            return response.Source;
+
+        return default;
     }
 
-    public async Task<IEnumerable<TEntity>> GetAllAsync()
+    public async Task<IEnumerable<TEntity>> GetAllAsync(int? from, int? size)
     {
-        // Implement fetching all entities from Elasticsearch
-        var searchResponse = await _elasticClient.SearchAsync<StringResponse>(_indexName, PostData.Serializable(new { }));
+        var indices = new List<string> { _indexName };
+        var response = await _elasticClient.SearchAsync<TEntity>(s => s
+            .Indices(indices.ToArray()) // pass the array of index names
+            .From(from)
+            .Size(size)
+        );
 
-        if (searchResponse.Success)
-        {
-            // Deserialize and return the list of entities
-            var documents = searchResponse.Body
-                .Split("\n", StringSplitOptions.RemoveEmptyEntries)
-                .Select(doc => JsonSerializer.Deserialize<TEntity>(doc));
+        if (response.IsValidResponse)
+            return response.Documents;
 
-            return documents;
-        }
-        else
-        {
-            // Handle error, e.g., log or throw an exception
-            return Enumerable.Empty<TEntity>();
-        }
+        return Enumerable.Empty<TEntity>();
     }
 
     public async Task<TEntity> CreateAsync(TEntity entity)
     {
-        var indexResponse = await _elasticClient.IndexAsync<StringResponse>(_indexName, Guid.NewGuid().ToString(), PostData.Serializable(entity));
-
-        if (indexResponse.Success)
-        {
+        var response = await _elasticClient.IndexAsync(entity, i => i.Index(_indexName).Id(entity.Id));
+        if (response.IsValidResponse)
             return entity;
-        }
-        else
-        {
-            // Handle error, e.g., log or throw an exception
-            return null;
-        }
+
+        return null;
     }
 
     public async Task<TEntity> UpdateAsync(Guid id, TEntity entity)
     {
-        var updateResponse = await _elasticClient.UpdateAsync<StringResponse>(_indexName, id.ToString(), PostData.Serializable(entity));
+        var response = await _elasticClient.UpdateAsync<TEntity, TEntity>(_indexName, id, u => u.Doc(entity));
 
-        if (updateResponse.Success)
+        if (response.IsValidResponse)
         {
             // Fetch and return the updated entity
             return await GetByIdAsync(id);
         }
         else
         {
-            // Handle error, e.g., log or throw an exception
             return null;
         }
     }
 
     public async Task<bool> DeleteAsync(Guid id)
     {
-        try
-        {
-            var deleteResponse = await _elasticClient.DeleteAsync<StringResponse>(_indexName, id.ToString());
-
-            return deleteResponse.Success;
-        }
-        catch
-        {
-            return false;
-        }
+        var response = await _elasticClient.DeleteAsync<TEntity>(id);
+        return response.IsValidResponse;
     }
 }
